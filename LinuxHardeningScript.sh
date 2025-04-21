@@ -32,6 +32,8 @@ systemctl restart ssh
 # Faill2Ban is a daemon that scans log files and blocks those who repeatedly fail authentication.
 echo "===> Installing Fail2Ban..."
 apt install -y fail2ban
+systemctl enable fail2ban
+systemctl start fail2ba
 
 echo "===> Setting up automatic security updates..."
 apt install -y unattended-upgrades
