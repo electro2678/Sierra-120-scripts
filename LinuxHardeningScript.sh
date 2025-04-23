@@ -33,7 +33,7 @@ systemctl restart ssh
 echo "===> Installing Fail2Ban..."
 apt install -y fail2ban
 systemctl enable fail2ban
-systemctl start fail2ba
+systemctl start fail2ban
 
 echo "===> Setting up automatic security updates..."
 apt install -y unattended-upgrades
