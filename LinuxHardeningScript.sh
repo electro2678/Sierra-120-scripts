@@ -1,10 +1,28 @@
 #!/bin/bash
 
+# Please read through this script! It is not very long, but you should understand what is being configured on here.
+
+if ! grep -qi 'debian\|ubuntu' /etc/os-release; then
+    echo "[-] Unsupported distro. This script is built for Debian-based systems only. Change configs for dnf/yum if CentOS/RHEL/Fedora, and swap UFW for firewalld. Then remove this part."
+    exit 1
+fi
+
 # Requires root.
 if [ "$EUID" -ne 0 ]; then
     echo "Run as root, choomba."
     exit 1
 fi
+
+# Logging.
+LOGFILE="/var/log/system-hardening.log"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "[*] Logging to $LOGFILE"
+
+if [[ -f "$LOGFILE" ]]; then
+    chmod 600 "$LOGFILE"
+    chown root:root "$LOGFILE"
+fi
+
 
 echo "===> Updating system..."
 apt update && apt upgrade -y
