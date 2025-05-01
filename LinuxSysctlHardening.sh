@@ -1,8 +1,26 @@
 #!/bin/bash
 
+# PLEASE!!!!! READ THE COMMANDS AND WHAT THEY DO!!!
+# Some of them may disable some critical services depending on the machines usage, which you may want enabled either way.
+
 # This script checks services and abilities of a machine to detect whether it's a router, service node, or dev box.
 # Created because some of these configs could disable some critical services depending on the purpose of the machine.
 # Run this as root choom.
+
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root." >&2
+    exit 1
+fi
+
+if [[ "$1" == "--dry-run" ]]; then
+    echo "[*] Dry run mode: Configuration would be written to /etc/sysctl.d/99-custom-hardening.conf"
+    echo "[*] No changes have been made."
+    exit 0
+fi
+
+LOGFILE="/var/log/sysctl-hardening.log"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "[*] Logging to $LOGFILE"
 
 echo "===> Scanning environment..."
 
@@ -33,17 +51,27 @@ if [[ "$is_router" -eq 0 && "$is_devbox" -eq 0 ]]; then
     echo "Detected: Server role."
 fi
 
+SYSCTL_TMP="/etc/sysctl.d/99-custom-hardening.conf"
+
+SYSCTL_TMP="/etc/sysctl.d/99-custom-hardening.conf"
+
+# Backup existing config if present
+if [[ -f "$SYSCTL_TMP" ]]; then
+    cp "$SYSCTL_TMP" "${SYSCTL_TMP}.bak.$(date +%s)"
+    echo "[*] Existing config backed up to ${SYSCTL_TMP}.bak.$(date +%s)"
+fi
+
 # Build sysctl hardening config dynamically
 echo "===> Applying sysctl hardening rules..."
 SYSCTL_TMP="/etc/sysctl.d/99-custom-hardening.conf"
 
 cat <<EOF > "$SYSCTL_TMP"
 # -- Core Hardening --
-net.ipv4.icmp_echo_ignore_broadcasts = 1	# Blocks ICMP brodcast pings, which can be abused for DDoS amplification. Will block the ping util.
+net.ipv4.icmp_echo_ignore_broadcasts = 1	# Blocks ICMP broadcast pings, which can be abused for DDoS amplification. Will block the ping util.
 net.ipv4.icmp_ignore_bogus_error_responses = 1  # Protects against malformed or spoofed ICMP error messages.
 net.ipv4.tcp_syncookies = 1			# Enables SYN cookies, a defense against SYN flood attacks.
 kernel.randomize_va_space = 2			# Makes memory layout unpredictable, defeating many buffer overflow and ROP-style attacks. 2 = Full randomization.
-kernel.kptr_restrict = 2			# Restricts access to /proc/kallsyms, which maps kernel addresses. Prevents leaking of kernal addresses to non-root users.
+kernel.kptr_restrict = 2			# Restricts access to /proc/kallsyms, which maps kernel addresses. Prevents leaking of kernel addresses to non-root users.
 kernel.dmesg_restrict = 1			# Blocks unprivileged users from reading kernel logs via dmesg.
 fs.protected_hardlinks = 1			# Stops users from creating hardlinks to files they don't own, which can be abused in some local privilege escalation attacks.
 fs.protected_symlinks = 1			# Prevents symlink race attacks, where a malicious user tricks a privileged process into following a symlink they control.
@@ -79,5 +107,8 @@ echo "===> Applying sysctl settings..."
 sysctl --system
 
 echo "===> Hardening complete based on environment."
+
+echo "Sysctl rules written to: $SYSCTL_TMP"
+echo "Role: $( [[ $is_router -eq 1 ]] && echo 'Router' || ( [[ $is_devbox -eq 1 ]] && echo 'Devbox' || echo 'Server') )"
 
 
